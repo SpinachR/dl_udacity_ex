@@ -103,8 +103,8 @@ ENV/
 # pic
 MNIST_data/
 flower_photos/
-.jpg
+*.jpg
 
 # gz or jar
-.gz
-.tar*
+*.gz
+*.tar*
