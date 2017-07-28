@@ -101,8 +101,8 @@ ENV/
 .mypy_cache/
 
 # pic
-.MNIST_data/
-.flower_photos/
+MNIST_data/
+flower_photos/
 .jpg
 
 # gz or jar
