@@ -101,6 +101,7 @@ ENV/
 .mypy_cache/
 
 # pic
+data/
 MNIST_data/
 flower_photos/
 *.jpg
