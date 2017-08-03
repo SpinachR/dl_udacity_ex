@@ -111,3 +111,7 @@ flower_photos/
 *.tar*
 
 codes
+checkpoint/
+mnist/
+tmp/
+
