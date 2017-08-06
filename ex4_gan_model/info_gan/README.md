@@ -8,3 +8,4 @@ python train_infogan.py
 
 ## Some generated nmist images by info_gan
 ![0](sample_images/18860.png)
+![1](sample_images/18880.png)
