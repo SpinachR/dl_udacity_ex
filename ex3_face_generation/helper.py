@@ -1,7 +1,7 @@
 import math
 import os
 import hashlib
-from urllib import urlretrieve
+from urllib.request import urlretrieve
 import zipfile
 import gzip
 import shutil
@@ -170,7 +170,7 @@ def download_extract(database_name, data_path):
         raise err
 
     # Remove compressed data
-    os.remove(save_path)
+    #os.remove(save_path)
 
 
 class Dataset(object):

@@ -1,4 +1,3 @@
-import problem_unitests as tests
 import tensorflow as tf
 
 def model_inputs(image_width, image_height, image_channels, z_dim):
