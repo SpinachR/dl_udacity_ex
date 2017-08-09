@@ -5,7 +5,7 @@ import scipy.misc
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import matplotlib.pyplot as plt
-import nn as model
+import weight_norm_nn as model
 import utils as utils
 from tensorflow.examples.tutorials.mnist import input_data
 import matplotlib

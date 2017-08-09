@@ -1,6 +1,9 @@
 class Config(object):
     def __init__(self, **kwargs):
         # configuration for building the network
+        self.seed_data = kwargs.get("seed_data", 1)
+        self.seed = kwargs.get("seed", 1)
+
         self.x_dim = kwargs.get("x_dim", 784)
         self.x_height = kwargs.get("x_height", 28)
         self.x_width = kwargs.get("x_width", 28)
@@ -15,8 +18,11 @@ class Config(object):
 
         self.epoch = kwargs.get("epoch", 10)
         self.batch_size = kwargs.get("batch_size", 150)
+
         self.unlabeled_batch = kwargs.get("unlabeled_batch", 100)
-        self.labeled_batch = kwargs.get("labeled_batch", 28)
+        self.num_of_labeled_data_for_each_classes = kwargs.get("num_of_labeled_data_for_each_classes", 10)
+        self.num_of_classes = kwargs.get("num_of_classes", 10)
+        self.labeled_batch = kwargs.get("labeled_batch", 28)  # deprecated
 
         self.lr = kwargs.get("lr", 0.0002)
         self.lr_d = kwargs.get("lr_d", 0.0002)
