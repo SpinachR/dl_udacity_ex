@@ -7,7 +7,7 @@ python train_infogan.py
 - for batch_size, 32 is enough. (128 is not good)
 
 ## Architecture of info_gan
-![infogan](sample_images/info_gan.png)
+![infogan](sample_images/Info_gan.png)
 
 ## Some generated nmist images by info_gan
 ![0](sample_images/18860.png)
