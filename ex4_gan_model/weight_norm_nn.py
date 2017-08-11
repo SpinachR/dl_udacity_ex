@@ -166,6 +166,13 @@ def get_name(layer_name, counters):
 
 
 @add_arg_scope
+def gaussian_noise_layer(x, sigma=0.1, is_training=True):
+    if is_training is True or sigma == 0:
+        x = x + tf.random_normal(shape=tf.shape(x), mean=0.0, stddev=sigma, dtype=tf.float32)
+    return x
+
+
+@add_arg_scope
 def dense(x, num_units, nonlinearity=None, init_scale=1., counters={}, init=False, ema=None, **kwargs):
     ''' fully connected layer '''
     name = get_name('dense', counters)
