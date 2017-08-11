@@ -1,7 +1,10 @@
 # generated images
 18000 steps
+
 ![18000.png](tmp/18000.png)
+
 40000 steps
+
 ![40000.png](tmp/40000.png)
 
 We can find that at the end of training stage, the Generator was collapsed.
@@ -20,4 +23,4 @@ The loss is smoothing in the middle, but it seems overfitting during the end of 
 The test_error was decreased gradually as training goes by, but during the stage, the training error was almost zero.
 So what makes the test_error goes down?
 However, in the end, the test_error increases, which means it overfits.
-The best result in this training was 93% (accuracy)
+The best result in this training was **93%** (accuracy)
