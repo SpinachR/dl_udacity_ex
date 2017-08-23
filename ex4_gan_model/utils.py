@@ -1,4 +1,5 @@
 import matplotlib
+matplotlib.use('Agg')
 import tensorflow as tf
 import scipy
 import scipy.misc
@@ -7,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import math
 import os
-matplotlib.use('Agg')
+
 
 
 def conv_cond_concat(x, y):
