@@ -6,8 +6,8 @@ only one hidden layer with 128 nodes
 
 Generated Examples:
 
-![without_batchnorm_uniformz64](images\without_batchnorm_uniformz64.png)
+![without_batchnorm_uniformz64](images/without_batchnorm_uniformz64.png)
 
 Loss summary (d_loss and g_loss):
 
-![without_batchnorm_uniformz64_loss](images\without_batchnorm_uniformz64_loss.png)
+![without_batchnorm_uniformz64_loss](images/without_batchnorm_uniformz64_loss.png)
