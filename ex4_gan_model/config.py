@@ -24,11 +24,12 @@ class Config(object):
         self.num_of_classes = kwargs.get("num_of_classes", 10)
         self.labeled_batch = kwargs.get("labeled_batch", 28)  # deprecated
 
-        self.lr = kwargs.get("lr", 0.0002)
-        self.lr_d = kwargs.get("lr_d", 0.0002)
-        self.lr_g = kwargs.get("lr_g", 0.0002)
+        self.lr = kwargs.get("lr", 0.0001)
+        self.lr_d = kwargs.get("lr_d", 0.0001)
+        self.lr_g = kwargs.get("lr_g", 0.0001)
 
         self.beta1 = kwargs.get("beta1", 0.5)  # recommend value in dcgan paper
+        self.beta2 = kwargs.get("beta2", 0.001)
 
         self.logdir = kwargs.get("logdir", "./logdir/infogan/mnist")
         self.sampledir = kwargs.get("sampledir", "./sample_image/mnist/infogan")

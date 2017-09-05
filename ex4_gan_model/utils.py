@@ -10,7 +10,6 @@ import math
 import os
 
 
-
 def conv_cond_concat(x, y):
     """Concatenate conditioning vector on feature map axis.
     :return: (batch_size, width, height, image_channel+y_dim[num of label])
@@ -30,11 +29,15 @@ def conv_out_size_same(size, stride):
 
 
 # This function performs a leaky relu activation, which is needed for the discriminator network.
-def lrelu(x, leak=0.2, name="lrelu"):
+def lrelu(x, leak=0.01, name="lrelu"):
     with tf.variable_scope(name):
         f1 = 0.5 * (1 + leak)
         f2 = 0.5 * (1 - leak)
         return f1 * x + f2 * abs(x)
+
+
+def log(x):
+    return tf.log(x+1e-8)
 
 
 def generate_z(batch_size, z_dim):
@@ -117,6 +120,6 @@ def plot(samples, figsize, image_dim):
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.set_aspect('equal')
-        plt.imshow(sample.reshape(image_dim), cmap='Greys_r')
+        plt.imshow(sample.reshape(image_dim))
 
     return fig

@@ -26,6 +26,8 @@ def _gen_arg_scope(is_training=True, outputs_collections=None):
     with slim.arg_scope([slim.conv2d_transpose, slim.fully_connected],
                         weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
                         activation_fn=tf.nn.relu,
+                        normalizer_fn=slim.batch_norm,
+                        normalizer_params=_batch_norm_params(is_training),
                         outputs_collections=outputs_collections):
         with slim.arg_scope([slim.conv2d_transpose],
                             kernel_size=[4, 4], stride=2, padding="SAME") as arg_scp:
@@ -57,11 +59,11 @@ def generator_x(z_c, image_dim=784, is_training=True, scope='generator'):
 
             h2 = slim.fully_connected(h1, 512, scope='gx_h2_fc')
 
-            h3 = slim.fully_connected(h1, image_dim,
+            h3 = slim.fully_connected(h2, image_dim,
                                       activation_fn=None, normalizer_fn=None, normalizer_params=None, scope='gx_h3_fc')
 
             end_pts = slim.utils.convert_collection_to_dict(end_pts_collection)
-            return tf.nn.sigmoid(h3), end_pts
+            return tf.nn.sigmoid(h3), h2, h1, end_pts
 
 
 def generator_z(x, z_dim=64, is_training=True, scope='generator'):
@@ -73,19 +75,19 @@ def generator_z(x, z_dim=64, is_training=True, scope='generator'):
 
     with tf.variable_scope(scope, default_name='generator') as scp:
         end_pts_collection = scp.name + 'end_pts'
-        with slim.arg_scope(_disc_arg_scope(is_training, end_pts_collection)):
+        with slim.arg_scope(_gen_arg_scope(is_training, end_pts_collection)):
             # FC 1024, lrelu, batchnorm
-            h1 = slim.fully_connected(x, 128, scope='gz_h1_fc')
+            h1 = slim.fully_connected(x, 512, scope='gz_h1_fc')
 
-            h2 = slim.fully_connected(h1, 512, scope='gz_h2_fc')
+            h2 = slim.fully_connected(h1, 128, scope='gz_h2_fc')
 
             # Discriminator output: fc z_dim
-            d_logit = slim.fully_connected(h1, z_dim, activation_fn=None, normalizer_fn=None,
+            d_logit = slim.fully_connected(h2, z_dim, activation_fn=None, normalizer_fn=None,
                                            normalizer_params=None,
                                            scope='d_output_logit')
 
             end_pts = slim.utils.convert_collection_to_dict(end_pts_collection)
-            return tf.nn.sigmoid(d_logit), end_pts
+            return tf.nn.sigmoid(d_logit), h2, h1, end_pts
 
 
 def discriminator(image, z, reuse=None, is_training=True, scope='discriminator'):
@@ -101,6 +103,9 @@ def discriminator(image, z, reuse=None, is_training=True, scope='discriminator')
         end_pts_collection = scp.name + 'end_pts'
         with slim.arg_scope(_disc_arg_scope(is_training, end_pts_collection)):
             x = tf.concat([image, z], axis=1)
+            print('image', image.get_shape())
+            print('z', z.get_shape())
+            print('x', x.get_shape())
 
             # FC 1024, lrelu, batchnorm
             h1 = slim.fully_connected(x, 128, scope='d_h1_fc')
@@ -162,11 +167,14 @@ class BiGAN(object):
         self.is_training = tf.placeholder(tf.bool, name="is_training")
 
         # build graph
-        self.x_hat, _ = generator_x(self.z, config.x_dim, self.is_training)
-        self.z_hat, _ = generator_z(self.x, config.z_dim, self.is_training)
+        self.x_hat, self.x_h2, self.x_h1, _ = generator_x(self.z, config.x_dim, self.is_training)
+        self.z_hat, self.z_h2, self.z_h1, _ = generator_z(self.x, config.z_dim, self.is_training)
 
-        print('x_hat_dim: ', self.x_hat.shape)
-        print('z_hat_dim: ', self.z_hat.shape)
+        print(self.x_hat.shape, self.x_h2.shape, self.x_h1.shape)
+        print(self.z_hat.shape, self.z_h2.shape, self.z_h1.shape)
+
+        mid_gen_x = tf.concat([self.x_h2, self.x_h1, self.z], axis=1)
+        mid_gen_z = tf.concat([self.z_h1, self.z_h2, self.z_hat], axis=1)
 
         self.D_enc, self.D_enc_logit, _ = discriminator(self.x, self.z_hat, is_training=self.is_training)
         self.D_gen, self.D_gen_logit, _ = discriminator(self.x_hat, self.z, reuse=True, is_training=self.is_training)
@@ -244,7 +252,8 @@ class BiGAN(object):
                               format(step, cur_loss_d, cur_loss_g))
 
                     if step % config.sample_every_n_steps == 0:
-                        z_ = utils.generate_z(81, config.z_dim)
+                        z_ = np.random.uniform(-1, 1, size=[81, config.z_dim])  # need to be identical with self.z
+                        #z_ = utils.generate_z(81, config.z_dim)
                         # cat_ = utils.sample_label(81, 9)
                         # c_ = np.random.uniform(0, 1, size=[81, config.c_dim])
                         #c_ = utils.generate_c(81, config.c_dim)
