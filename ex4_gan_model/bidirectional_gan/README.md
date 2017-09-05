@@ -45,4 +45,16 @@ Loss summary (d_loss and g_loss):
 ![with_batchnorm_uniformz100_loss](images/with_batchnorm_uniformz100_loss.png)
 
 
+___
+
+# 2.ALI model (The same architecture with the paper)
+
+The generated samples of SVHN datasets:
+![68800](images/68800.png)
+
+![65200](images/65200.png)
+
+![68600](images/68600.png)
+
+
 
