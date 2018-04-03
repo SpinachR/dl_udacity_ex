@@ -1,3 +1,14 @@
+- training G only once   
+- feature in D should be selected at the deeper layer
+- learning rate should be at 1e-4 level
+
+
+
+____
+
+
+
+
 # generated images
 18000 steps
 
