@@ -1,0 +1,210 @@
+def euclidean_dist(x, y):
+	m, n = x.size(0), y.size(0)
+	xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
+	yy = torch.pow(y, 2).sum(1, keepdim=True).expand(n, m).t()
+	dist = xx + yy
+	dist.addmm_(1, -2, x, y.t())
+	dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
+	return dist
+
+def cosine_dist(x, y):
+	bs1, bs2 = x.size(0), y.size(0)
+	frac_up = torch.matmul(x, y.transpose(0, 1))
+	frac_down = (torch.sqrt(torch.sum(torch.pow(x, 2), 1))).view(bs1, 1).repeat(1, bs2) * \
+	            (torch.sqrt(torch.sum(torch.pow(y, 2), 1))).view(1, bs2).repeat(bs1, 1)
+	cosine = frac_up / frac_down
+	return 1-cosine
+
+def _batch_hard(mat_distance, mat_similarity, indice=False):
+	sorted_mat_distance, positive_indices = torch.sort(mat_distance + (-9999999.) * (1 - mat_similarity), dim=1, descending=True)
+	hard_p = sorted_mat_distance[:, 0]
+	hard_p_indice = positive_indices[:, 0]
+	sorted_mat_distance, negative_indices = torch.sort(mat_distance + (9999999.) * (mat_similarity), dim=1, descending=False)
+	hard_n = sorted_mat_distance[:, 0]
+	hard_n_indice = negative_indices[:, 0]
+	if(indice):
+		return hard_p, hard_n, hard_p_indice, hard_n_indice
+	return hard_p, hard_n
+    
+    
+
+class OnlineTripletLoss(nn.Module):
+    def __init__(self, margin, triplet_selector):
+        super(OnlineTripletLoss, self).__init__()
+        self.margin = margin
+        self.triplet_selector = triplet_selector
+    
+    def forward(self, embeddings, target):
+
+        triplets = self.triplet_selector.get_triplets(embeddings, target)
+
+        if embeddings.is_cuda:
+            triplets = triplets.cuda()
+
+        ap_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 1]]).pow(2).sum(1).pow(.5)
+        an_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 2]]).pow(2).sum(1).pow(.5)
+        losses = F.relu(ap_distances - an_distances + self.margin)
+
+        return losses.sum(), len(triplets)
+
+class TripletLoss(nn.Module):
+	'''
+	Compute Triplet loss augmented with Batch Hard
+	Details can be seen in 'In defense of the Triplet Loss for Person Re-Identification'
+	'''
+
+	def __init__(self, margin, normalize_feature=False):
+		super(TripletLoss, self).__init__()
+		self.margin = margin
+		self.normalize_feature = normalize_feature
+		self.margin_loss = nn.MarginRankingLoss(margin=margin).cuda()
+
+	def forward(self, emb, label):
+		if self.normalize_feature:
+			# equal to cosine similarity
+			emb = F.normalize(emb)
+		mat_dist = euclidean_dist(emb, emb)
+		# mat_dist = cosine_dist(emb, emb)
+		assert mat_dist.size(0) == mat_dist.size(1)
+		N = mat_dist.size(0)
+		mat_sim = label.expand(N, N).eq(label.expand(N, N).t()).float()
+
+		dist_ap, dist_an = _batch_hard(mat_dist, mat_sim, indices)
+		assert dist_an.size(0)==dist_ap.size(0)
+		y = torch.ones_like(dist_ap)
+		loss = self.margin_loss(dist_an, dist_ap, y)
+		prec = (dist_an.data > dist_ap.data).sum() * 1. / y.size(0)
+		return loss, prec
+        
+class TripletLoss1(nn.Module):
+    '''
+    Compute Triplet loss augmented with Batch Hard
+    Details can be seen in 'In defense of the Triplet Loss for Person Re-Identification'
+    '''
+
+    def __init__(self, margin, normalize_feature=False):
+        print('use my triplets implementation')
+        super(TripletLoss1, self).__init__()
+        self.margin = margin
+        self.normalize_feature = normalize_feature
+        self.margin_loss = nn.MarginRankingLoss(margin=margin).cuda()
+
+    def forward(self, emb, label):
+        if self.normalize_feature:
+            # equal to cosine similarity
+            emb = F.normalize(emb)
+        mat_dist = euclidean_dist(emb, emb)
+        # mat_dist = cosine_dist(emb, emb)
+        assert mat_dist.size(0) == mat_dist.size(1)
+        N = mat_dist.size(0)
+        mat_sim = label.expand(N, N).eq(label.expand(N, N).t()).float()
+
+        dist_ap, dist_an, hard_p_indice, hard_n_indice = _batch_hard(mat_dist, mat_sim, indice=True)
+
+        anchor = torch.tensor(list(range(N)), device='cuda')
+
+        triplets = torch.stack((anchor, hard_p_indice, hard_n_indice))
+
+        # print(hard_p_indice)
+
+        # print(triplets[:, 1])
+        # print(triplets[:, 2])
+        ap_distances = (emb - emb[hard_p_indice]).pow(2).sum(1).pow(.5)
+        an_distances = (emb - emb[hard_n_indice]).pow(2).sum(1).pow(.5)
+        losses = F.relu(ap_distances - an_distances + self.margin)
+
+        return losses.mean(), (ap_distances > an_distances).sum()
+        
+
+def rank_loss(dist_mat, labels, margin,alpha,tval):
+    """
+    Args:
+      dist_mat: pytorch Variable, pair wise distance between samples, shape [N, N]
+      labels: pytorch LongTensor, with shape [N]
+      
+      using rank loss for re-id, the learning rate should not be too small 3e-4 ok, 3e-5 will increase and decrease. Maybe 1e-4 is OK
+      I found that too small learning rate may make rank loss decrease rapidly, this imbalance the rank loss and ce loss
+    """
+    assert len(dist_mat.size()) == 2
+    assert dist_mat.size(0) == dist_mat.size(1)
+    N = dist_mat.size(0)
+
+    total_loss = 0.0
+    for ind in range(N):
+        is_pos = labels.eq(labels[ind])
+        is_pos[ind] = 0
+        is_neg = labels.ne(labels[ind])
+        
+        dist_ap = dist_mat[ind][is_pos]
+        dist_an = dist_mat[ind][is_neg]
+        
+        ap_is_pos = torch.clamp(torch.add(dist_ap,margin-alpha),min=0.0)
+        ap_pos_num = ap_is_pos.size(0) +1e-5
+        ap_pos_val_sum = torch.sum(ap_is_pos)
+        loss_ap = torch.div(ap_pos_val_sum,float(ap_pos_num))
+
+        an_is_pos = torch.lt(dist_an,alpha)
+        an_less_alpha = dist_an[an_is_pos]
+        an_weight = torch.exp(tval*(-1*an_less_alpha+alpha))
+        an_weight_sum = torch.sum(an_weight) +1e-5
+        an_dist_lm = alpha - an_less_alpha
+        an_ln_sum = torch.sum(torch.mul(an_dist_lm,an_weight))
+        loss_an = torch.div(an_ln_sum,an_weight_sum)
+        
+        total_loss = total_loss+loss_ap+loss_an
+    total_loss = total_loss*1.0/N
+    return total_loss
+
+        
+class RankLoss(nn.Module):
+    "Ranked_List_Loss_for_Deep_Metric_Learning_CVPR_2019_paper, https://github.com/Qidian213/Ranked_Person_ReID"
+    
+    def __init__(self, margin=1.3, alpha=2., tval=1.):
+        super(RankLoss, self).__init__()
+        self.margin = margin
+        self.alpha = alpha
+        self.tval = tval
+        
+    def forward(self, emb1, labels, normalize_feature=True):
+        if normalize_feature:
+            emb1 = F.normalize(emb1)
+        dist_mat = euclidean_dist(emb1, emb1)
+        total_loss = rank_loss(dist_mat,labels,self.margin,self.alpha,self.tval)
+        
+        return total_loss      
+ 
+
+class SoftTripletLoss(nn.Module):
+
+	def __init__(self, margin=None, normalize_feature=False):
+		super(SoftTripletLoss, self).__init__()
+		self.margin = margin
+		self.normalize_feature = normalize_feature
+
+	def forward(self, emb1, emb2, label):
+		if self.normalize_feature:
+			# equal to cosine similarity
+			emb1 = F.normalize(emb1)
+			emb2 = F.normalize(emb2)
+
+		mat_dist = euclidean_dist(emb1, emb1)
+		assert mat_dist.size(0) == mat_dist.size(1)
+		N = mat_dist.size(0)
+		mat_sim = label.expand(N, N).eq(label.expand(N, N).t()).float()
+
+		dist_ap, dist_an, ap_idx, an_idx = _batch_hard(mat_dist, mat_sim, indice=True)
+		assert dist_an.size(0)==dist_ap.size(0)
+		triple_dist = torch.stack((dist_ap, dist_an), dim=1)
+		triple_dist = F.log_softmax(triple_dist, dim=1)
+		if (self.margin is not None):
+			loss = (- self.margin * triple_dist[:,0] - (1 - self.margin) * triple_dist[:,1]).mean()
+			return loss
+
+		mat_dist_ref = euclidean_dist(emb2, emb2)
+		dist_ap_ref = torch.gather(mat_dist_ref, 1, ap_idx.view(N,1).expand(N,N))[:,0]
+		dist_an_ref = torch.gather(mat_dist_ref, 1, an_idx.view(N,1).expand(N,N))[:,0]
+		triple_dist_ref = torch.stack((dist_ap_ref, dist_an_ref), dim=1)
+		triple_dist_ref = F.softmax(triple_dist_ref, dim=1).detach()
+
+		loss = (- triple_dist_ref * triple_dist).mean(0).sum()
+		return loss
